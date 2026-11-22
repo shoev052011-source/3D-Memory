@@ -4,7 +4,7 @@
 
 ---
 
-## 🧑‍⚖️ Quick Start Guide for Judges
+## 🧑‍⚖️ Quick Start Guide
 
 You can evaluate **Atmosphere Diary** in two ways: **instantly in your browser** via our live Vercel deployment, or **locally** to test uploading new 3D `.ply` files to disk.
 
