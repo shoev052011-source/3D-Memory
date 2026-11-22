@@ -36,7 +36,6 @@
             letter-spacing: -0.015em;
         }
 
-        /* Fast GPU-composited sidebar (no backdrop-filter lag) */
         #sidebar {
             transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
             border-radius: 34px;
@@ -49,7 +48,6 @@
             pointer-events: none;
         }
 
-        /* Ultra-responsive Apple magnetic glass pills */
         .liquid-pill {
             --tx: 0px;
             --ty: 0px;
@@ -119,7 +117,6 @@
             100% { height: 16px; }
         }
 
-        /* Lightweight static ambient background glow (zero main-thread CPU cost) */
         .fluid-canvas {
             position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 1;
             background: 
@@ -127,7 +124,6 @@
                 radial-gradient(550px circle at 75% 75%, rgba(197, 138, 249, 0.15), transparent 70%);
         }
         
-        /* Glassy center bubble with pure GPU transform wobble (zero layout thrashing) */
         .bubble {
             width: 650px; height: 650px;
             position: relative;
@@ -166,15 +162,12 @@
         </svg>
     </button>
 
-    <!-- Collapsible Sidebar -->
     <div id="sidebar" class="fixed top-4 bottom-4 left-4 w-72 border border-white/15 p-5 flex flex-col z-30">
-        
         <div class="flex items-center justify-between mb-5 px-1">
             <div class="flex items-center gap-2">
                 <span class="text-lg text-[#8ab4f8]">✦</span>
                 <h2 class="text-sm font-semibold text-[#f5f5f7]">Memory Archive</h2>
             </div>
-
             <div class="flex items-center gap-2">
                 <button onclick="toggleSearchBar()" title="Search memories" class="circle-btn magnetic-btn w-9 h-9 flex items-center justify-center text-[#c4c7c5] hover:text-white">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -205,12 +198,10 @@
         </button>
     </div>
 
-    <!-- Main Workspace -->
     <div id="main-area" class="w-screen h-screen relative flex items-center justify-center">
         
         <div id="bg-fluid-layer" class="fluid-canvas"></div>
 
-        <!-- 1. INPUT HUB BUBBLE -->
         <div id="input-hub" class="bubble flex flex-col items-center justify-center p-10 relative z-10 border border-white/15">
             <div class="text-center mb-4">
                 <h1 class="text-[28px] font-semibold bg-gradient-to-r from-[#8ab4f8] via-[#c58af9] to-[#f28b82] bg-clip-text text-transparent mb-1">
@@ -219,7 +210,6 @@
                 <p class="text-xs text-[#a1a6ad]">Upload a photo & 3D Splat (.PLY), pick a date & song, and pin to Earth</p>
             </div>
 
-            <!-- Row 1: Location Pill, Date Pill, & Importance Pill -->
             <div class="w-full max-w-[500px] flex gap-2 mb-3 relative z-30">
                 <div class="liquid-pill flex-1 px-3.5 py-2.5 flex items-center gap-1.5">
                     <span class="text-xs">📍</span>
@@ -249,7 +239,6 @@
                 </div>
             </div>
 
-            <!-- Row 2: Main Gemini Pill Input Bar -->
             <div class="liquid-pill w-full max-w-[500px] px-2.5 py-2 flex items-center gap-2.5 relative z-50 mb-3">
                 <div class="relative custom-dd">
                     <button type="button" onclick="toggleCustomDD('plus-menu', event)" class="circle-btn magnetic-btn w-10 h-10 flex items-center justify-center text-white text-lg font-light">
@@ -278,9 +267,7 @@
                 </button>
             </div>
 
-            <!-- Row 3: Spotify Connect + Universal Live Search Pill -->
             <div class="w-full max-w-[500px] flex flex-col items-center gap-2.5 relative z-20">
-                
                 <div class="w-full flex items-center gap-2.5">
                     <a id="spotify-connect-btn" href="/api/spotify/login" 
                         class="liquid-pill magnetic-btn px-5 py-2.5 text-xs font-semibold text-[#1db954] whitespace-nowrap flex items-center gap-1.5">
@@ -298,7 +285,6 @@
                     </div>
                 </div>
 
-                <!-- Row 4: Playlist & Song Dropdowns -->
                 <div class="flex gap-2.5 w-full relative">
                     <div class="w-1/2 relative custom-dd">
                         <button type="button" onclick="toggleCustomDD('playlist-popup', event)" 
@@ -336,7 +322,6 @@
             </div>
         </div>
 
-        <!-- 2. CONFIRMATION MODAL -->
         <div id="confirm-modal" class="hidden fixed inset-0 bg-black/75 z-50 flex items-center justify-center">
             <div class="bubble !w-96 !h-96 flex flex-col items-center justify-center p-8 text-center border border-white/20">
                 <h3 class="text-xl font-semibold text-[#f5f5f7] mb-2">Build 3D Memory?</h3>
@@ -350,7 +335,6 @@
             </div>
         </div>
 
-        <!-- 3. REALISTIC 3D EARTH GLOBE VIEWER -->
         <div id="globe-viewer" class="hidden fixed inset-0 z-20 bg-[#05060a]">
             <div id="globe-canvas" class="w-screen h-screen cursor-grab active:cursor-grabbing"></div>
             <div class="fixed top-5 right-6 liquid-pill px-6 py-2.5 pointer-events-none flex items-center gap-3">
@@ -361,7 +345,6 @@
             <div id="globe-tooltip" class="hidden fixed liquid-pill px-4 py-2 text-xs shadow-xl pointer-events-none z-50"></div>
         </div>
 
-        <!-- 4. INTERACTIVE 3D SCENE VIEWER -->
         <div id="scene-viewer" class="hidden fixed inset-0 z-20 bg-[#07080c]">
             <div id="three-canvas" class="w-screen h-screen cursor-grab active:cursor-grabbing"></div>
             <div class="fixed top-5 right-6 liquid-pill px-5 py-2 text-[11px] text-[#c4c7c5] flex items-center gap-3 z-30">
@@ -380,8 +363,7 @@
                 <h2 id="scene-title" class="text-lg font-semibold text-white mb-1"></h2>
                 <p id="scene-text" class="text-xs text-[#c4c7c5] leading-relaxed mb-3"></p>
                 
-                <div id="scene-player-mount" class="hidden mb-3"></div>
-
+                <div id="scene-player-mount" class="hidden mb-0"></div>
             </div>
         </div>
 
@@ -396,12 +378,8 @@
         const keysPressed = {};
         const audioEngine = document.getElementById('global-audio-engine');
 
-        // Default date input to today
         document.getElementById('date-input').value = new Date().toISOString().split('T')[0];
 
-        // ------------------------------------------
-        // FAST RAF-THROTTLED APPLE MAGNETIC CURSOR
-        // ------------------------------------------
         function attachMagneticEffect(el, strength = 0.22) {
             if (el.dataset.magneticBound) return;
             el.dataset.magneticBound = "1";
@@ -544,7 +522,7 @@
             return `${m}:${s}`;
         }
 
-        function mountCustomPlayer(containerId, trackObj, autoPlay = true) {
+        function mountCustomPlayer(containerId, trackObj, autoPlay = false) {
             const container = document.getElementById(containerId);
             if (!trackObj || !trackObj.url) {
                 container.classList.add('hidden');
@@ -763,9 +741,6 @@
             openMemoryScene(data);
         }
 
-        // ------------------------------------------
-        // TEARDROP LOCATION PIN TEXTURE GENERATOR
-        // ------------------------------------------
         function getMapPinTexture() {
             if (mapPinTexture) return mapPinTexture;
             const canvas = document.createElement('canvas');
@@ -773,7 +748,6 @@
             canvas.height = 160;
             const ctx = canvas.getContext('2d');
 
-            // Teardrop red map pin silhouette
             ctx.save();
             ctx.beginPath();
             ctx.arc(64, 56, 46, Math.PI * 0.88, Math.PI * 0.12, false);
@@ -789,7 +763,6 @@
             ctx.strokeStyle = '#ffffff';
             ctx.stroke();
 
-            // Inner white circle cutout
             ctx.beginPath();
             ctx.arc(64, 56, 20, 0, Math.PI * 2);
             ctx.fillStyle = '#ffffff';
@@ -859,7 +832,6 @@
             const clickablePinMeshes = [];
             const seenCoords = {};
 
-            // Place EVERY memory on the globe; offset duplicates slightly so no two pins ever hide each other
             allMemories.forEach((mem, idx) => {
                 let lat = parseFloat(mem.lat);
                 let lon = parseFloat(mem.lon);
@@ -957,9 +929,6 @@
             animateGlobe();
         }
 
-        // ------------------------------------------
-        // 3D MEMORY SCENE
-        // ------------------------------------------
         function build3DEnvironmentFromPhoto(tex, memoryData, primaryColor) {
             const aspect = tex.image.width / tex.image.height;
             const width = 5.4 * aspect;
@@ -1005,6 +974,12 @@
 
         function openMemoryScene(data) {
             currentMemory = data;
+            const isLocal = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
+            if (!isLocal && data.photo_url && data.photo_url.startsWith('/memories/')) {
+                const cleanPhoto = data.photo_url.split('/').map(p => encodeURIComponent(decodeURIComponent(p))).join('/');
+                data.photo_url = `https://raw.githubusercontent.com/shoev052011-source/3D-Memory/main${cleanPhoto}`;
+            }
+
             hideAllViews();
             document.getElementById('scene-viewer').classList.remove('hidden');
 
@@ -1014,20 +989,20 @@
             document.getElementById('scene-importance').innerText = `★ ${data.importance || 3}/5`;
             document.getElementById('scene-text').innerText = `"${data.text}"`;
 
+            // Music player set to autoPlay = false (does not play automatically)
             mountCustomPlayer('scene-player-mount', {
                 url: data.song_url,
                 title: data.song_title || data.title,
                 artist: data.song_artist || data.location,
                 cover: data.song_cover || data.photo_url
-            }, true);
+            }, false);
 
             const container = document.getElementById('three-canvas');
             container.innerHTML = '';
             const badge = document.getElementById('scene-mode-badge');
 
-            // 1. ML-SHARP 3D GAUSSIAN SPLAT (.PLY / .SPLAT)
             if (data.splat_url && window.GaussianSplats3D) {
-                badge.textContent = "⏳ Loading 3D Splat...";
+                badge.textContent = "⏳ Downloading 3D Splat (60MB)...";
                 container.style.width = '100vw';
                 container.style.height = '100vh';
 
@@ -1042,23 +1017,24 @@
                     sphericalHarmonicsDegree: 0
                 });
 
-                // Turn off GaussianSplats3D's default W/S vertical up/down keyboard listener
                 if (activeSplatViewer.controls && activeSplatViewer.controls.stopListenToKeyEvents) {
                     activeSplatViewer.controls.stopListenToKeyEvents();
                 }
 
-                const safeUrl = data.splat_url.split('/').map(p => encodeURIComponent(decodeURIComponent(p))).join('/');
+                const cleanPath = data.splat_url.split('/').map(p => encodeURIComponent(decodeURIComponent(p))).join('/');
+                const finalSplatUrl = isLocal
+                    ? cleanPath
+                    : `https://raw.githubusercontent.com/shoev052011-source/3D-Memory/main${cleanPath}`;
 
-                activeSplatViewer.addSplatScene(safeUrl, {
+                activeSplatViewer.addSplatScene(finalSplatUrl, {
                     format: window.GaussianSplats3D.SceneFormat.Ply,
-                    splatAlphaRemovalThreshold: 5,
+                    splatAlphaRemovalThreshold: 15,
                     showLoadingUI: true,
                     progressiveLoad: false
                 }).then(() => {
                     badge.textContent = "✨ ML-SHARP 3D Gaussian Splat";
                     activeSplatViewer.start();
 
-                    // Custom WASD walk loop: W/S = Forward/Backward, A/D = Left/Right
                     function animateSplatWalk() {
                         if (document.getElementById('scene-viewer').classList.contains('hidden') || !activeSplatViewer) return;
                         sceneAnimId = requestAnimationFrame(animateSplatWalk);
@@ -1072,8 +1048,6 @@
                         cam.getWorldDirection(forward);
                         forward.y = 0;
                         forward.normalize();
-
-                        // Because cameraUp is [0, -1, 0] in ML-SHARP, cross(cam.up, forward) gives screen-right
                         const right = new THREE.Vector3().crossVectors(forward, cam.up).normalize();
 
                         if (keysPressed['w']) { cam.position.addScaledVector(forward, speed); ctrl.target.addScaledVector(forward, speed); }
@@ -1084,6 +1058,7 @@
                     animateSplatWalk();
                 }).catch((err) => {
                     console.error("ML-SHARP Splat Error:", err);
+                    badge.textContent = "⚠️ Splat failed — check GitHub /memories folder";
                 });
                 return;
             }
@@ -1149,20 +1124,14 @@
                 const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
 
                 if (keysPressed['w']) { camera.position.addScaledVector(forward, moveSpeed); controls.target.addScaledVector(forward, moveSpeed); }
-                if (keysPressed['s']) { camera.position.addScaledVector(forward, -moveSpeed); controls.target.addScaledVector(forward, -moveSpeed); }
-                if (keysPressed['a']) { camera.position.addScaledVector(right, -moveSpeed); controls.target.addScaledVector(right, -moveSpeed); }
-                if (keysPressed['d']) { camera.position.addScaledVector(right, moveSpeed); controls.target.addScaledVector(right, moveSpeed); }
+                if (keysPressed['s']) { camera.position.addScaledVector(forward, -speed); controls.target.addScaledVector(forward, -speed); }
+                if (keysPressed['a']) { camera.position.addScaledVector(right, -speed); controls.target.addScaledVector(right, -speed); }
+                if (keysPressed['d']) { camera.position.addScaledVector(right, speed); controls.target.addScaledVector(right, speed); }
 
                 controls.update();
                 renderer.render(scene, camera);
             }
             animate();
-        }
-
-        function speakMemory() {
-            if (!currentMemory) return;
-            window.speechSynthesis.cancel();
-            window.speechSynthesis.speak(new SpeechSynthesisUtterance(currentMemory.text));
         }
 
         function renderArchiveList(list) {
