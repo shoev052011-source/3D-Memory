@@ -1,0 +1,25 @@
+{
+  "title": "A Quiet Moment Remembered",
+  "date": "2026-11-22 21:52",
+  "text": "chair",
+  "location": "Kazakhstan",
+  "importance": 3,
+  "lat": 51.16,
+  "lon": 10.45,
+  "song_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/26/1d/ea/261dea59-ddfd-b9fb-9e37-a609f5536118/mzaf_16912945689144077045.plus.aac.p.m4a",
+  "song_title": "Dreamy Ambient",
+  "song_artist": "Yoga Music Baby Masters",
+  "song_cover": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/98/98/df/9898dfd2-c917-8cb2-c9b2-8419120847f6/8134130720773.jpg/300x300bb.jpg",
+  "photo_url": "/memories/A Quiet Moment Remembered/photo_images.jpeg",
+  "glb_url": "",
+  "splat_url": "/memories/A Quiet Moment Remembered/model_images.ply",
+  "ai": {
+    "title": "A Quiet Moment Remembered",
+    "primary_color": "#8ab4f8",
+    "bg_color": "#0b0d14",
+    "art_style": "Minimalist Zen",
+    "wobble_speed": 1.0,
+    "lat": 51.16,
+    "lon": 10.45
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "id": "Love Paris_223958",
+  "title": "Love Paris",
+  "date": "2026-11-22",
+  "text": "Love paris",
+  "location": "Paris",
+  "importance": 3,
+  "lat": 48.8566,
+  "lon": 2.3522,
+  "song_url": "",
+  "song_title": "",
+  "song_artist": "",
+  "song_cover": "",
+  "photo_url": "/memories/Love Paris_223958/photo_Paris.jpeg",
+  "glb_url": "",
+  "splat_url": "/memories/Love Paris_223958/model_Paris.ply",
+  "ai": {
+    "title": "Love Paris",
+    "primary_color": "#8ab4f8",
+    "bg_color": "#0b0d14"
+  }
+}

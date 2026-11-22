@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Atmosphere Diary // ArtTech</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://esm.sh/three@0.160.0",
+            "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/",
+            "@mkkellogg/gaussian-splats-3d": "https://esm.sh/@mkkellogg/gaussian-splats-3d@0.4.6?deps=three@0.160.0"
+        }
+    }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import * as GaussianSplats3D from '@mkkellogg/gaussian-splats-3d';
+
+        window.THREE = THREE;
+        window.OrbitControls = OrbitControls;
+        window.GLTFLoader = GLTFLoader;
+        window.GaussianSplats3D = GaussianSplats3D;
+    </script>
+
+    <style>
+        body { 
+            background: #05060a; 
+            color: #f5f5f7; 
+            overflow: hidden; 
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            letter-spacing: -0.015em;
+        }
+
+        /* Fast GPU-composited sidebar (no backdrop-filter lag) */
+        #sidebar {
+            transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
+            border-radius: 34px;
+            background: linear-gradient(160deg, rgba(20, 23, 35, 0.96), rgba(11, 13, 21, 0.98));
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65), inset 0 1px 1px rgba(255, 255, 255, 0.14);
+        }
+        #sidebar.collapsed {
+            transform: translate3d(-120%, 0, 0);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Ultra-responsive Apple magnetic glass pills */
+        .liquid-pill {
+            --tx: 0px;
+            --ty: 0px;
+            border-radius: 9999px !important;
+            background: linear-gradient(135deg, rgba(255,255,255,0.09), rgba(138,180,248,0.11));
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28), inset 0 1px 1px rgba(255, 255, 255, 0.12);
+            transform: translate3d(var(--tx), var(--ty), 0);
+            transition: transform 0.12s ease-out, border-color 0.15s ease;
+        }
+        .liquid-pill:hover, .liquid-pill:focus-within {
+            border-color: rgba(138, 180, 248, 0.6);
+        }
+
+        .circle-btn {
+            --tx: 0px;
+            --ty: 0px;
+            --scale: 1;
+            border-radius: 9999px !important;
+            background: linear-gradient(135deg, rgba(138, 180, 248, 0.3), rgba(197, 138, 249, 0.24));
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+            transform: translate3d(var(--tx), var(--ty), 0) scale(var(--scale));
+            transition: transform 0.12s ease-out, border-color 0.15s ease;
+        }
+        .circle-btn:hover {
+            --scale: 1.07;
+            border-color: rgba(138, 180, 248, 0.75);
+        }
+        .circle-btn:active {
+            --scale: 0.94;
+        }
+
+        .fluid-menu-popup {
+            background: #10121c;
+            border: 1px solid rgba(138, 180, 248, 0.35);
+            border-radius: 24px;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85);
+            max-height: 220px;
+            overflow-y: auto;
+        }
+        .fluid-menu-popup::-webkit-scrollbar { width: 5px; }
+        .fluid-menu-popup::-webkit-scrollbar-thumb { background: rgba(138, 180, 248, 0.35); border-radius: 9999px; }
+
+        .spin-disc {
+            animation: discSpin 8s linear infinite;
+            animation-play-state: paused;
+        }
+        .spin-disc.playing {
+            animation-play-state: running;
+        }
+        @keyframes discSpin {
+            100% { transform: rotate(360deg); }
+        }
+
+        .eq-bar {
+            width: 3px;
+            border-radius: 9999px;
+            background: linear-gradient(to top, #8ab4f8, #c58af9);
+            height: 4px;
+        }
+        .playing .eq-bar-1 { animation: eqBounce 0.7s ease-in-out infinite alternate; }
+        .playing .eq-bar-2 { animation: eqBounce 0.5s ease-in-out infinite alternate 0.15s; }
+        .playing .eq-bar-3 { animation: eqBounce 0.8s ease-in-out infinite alternate 0.3s; }
+        @keyframes eqBounce {
+            0% { height: 4px; }
+            100% { height: 16px; }
+        }
+
+        /* Lightweight static ambient background glow (zero main-thread CPU cost) */
+        .fluid-canvas {
+            position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 1;
+            background: 
+                radial-gradient(500px circle at 25% 25%, rgba(138, 180, 248, 0.16), transparent 70%),
+                radial-gradient(550px circle at 75% 75%, rgba(197, 138, 249, 0.15), transparent 70%);
+        }
+        
+        /* Glassy center bubble with pure GPU transform wobble (zero layout thrashing) */
+        .bubble {
+            width: 650px; height: 650px;
+            position: relative;
+            border-radius: 50%;
+            background: 
+                radial-gradient(circle at 28% 20%, rgba(255, 255, 255, 0.22), transparent 40%),
+                radial-gradient(circle at 32% 28%, rgba(138, 180, 248, 0.28), rgba(168, 127, 251, 0.22) 48%, rgba(14, 16, 26, 0.96) 86%);
+            box-shadow: 
+                0 24px 70px rgba(0, 0, 0, 0.75), 
+                inset 0 2px 18px rgba(255, 255, 255, 0.25),
+                inset 0 -10px 26px rgba(138, 180, 248, 0.18);
+            animation: gpuWobble 7s ease-in-out infinite;
+            will-change: transform;
+        }
+        @keyframes gpuWobble {
+            0%, 100% { transform: scale3d(1, 1, 1); }
+            33%      { transform: scale3d(1.015, 0.986, 1); }
+            66%      { transform: scale3d(0.988, 1.014, 1); }
+        }
+
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.8);
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden relative" onclick="closeAllCustomDropdowns(event)">
+
+    <audio id="global-audio-engine" preload="auto"></audio>
+
+    <button id="open-sidebar-btn" onclick="toggleSidebar()" title="Open Archive Sidebar" 
+        class="circle-btn magnetic-btn hidden fixed top-5 left-5 z-40 w-11 h-11 flex items-center justify-center text-white shadow-2xl">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <rect x="3" y="3" width="18" height="18" rx="5" stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="9" y1="3" x2="9" y2="21" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </button>
+
+    <!-- Collapsible Sidebar -->
+    <div id="sidebar" class="fixed top-4 bottom-4 left-4 w-72 border border-white/15 p-5 flex flex-col z-30">
+        
+        <div class="flex items-center justify-between mb-5 px-1">
+            <div class="flex items-center gap-2">
+                <span class="text-lg text-[#8ab4f8]">✦</span>
+                <h2 class="text-sm font-semibold text-[#f5f5f7]">Memory Archive</h2>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button onclick="toggleSearchBar()" title="Search memories" class="circle-btn magnetic-btn w-9 h-9 flex items-center justify-center text-[#c4c7c5] hover:text-white">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="7"></circle>
+                        <line x1="20" y1="20" x2="16.2" y2="16.2" stroke-linecap="round"></line>
+                    </svg>
+                </button>
+                <button onclick="toggleSidebar()" title="Collapse sidebar" class="circle-btn magnetic-btn w-9 h-9 flex items-center justify-center text-[#c4c7c5] hover:text-white">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="3" y="3" width="18" height="18" rx="5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <line x1="9" y1="3" x2="9" y2="21" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <input id="archive-search" type="text" placeholder="Search title, date, or place..." oninput="filterArchive()"
+            class="hidden mb-3 w-full liquid-pill px-4 py-2 text-xs text-white placeholder-[#9aa0a6] focus:outline-none">
+
+        <button onclick="openGlobeView()" class="liquid-pill magnetic-btn mb-4 w-full py-2.5 text-xs font-semibold text-[#8ab4f8] flex items-center justify-center gap-2">
+            🌍 Open 3D Earth Globe
+        </button>
+
+        <div id="archive-list" class="space-y-2.5 overflow-y-auto overflow-x-hidden flex-1 text-sm pr-1"></div>
+
+        <button onclick="resetToCreate()" class="liquid-pill magnetic-btn mt-4 w-full py-2.5 text-xs font-semibold text-[#f5f5f7] flex items-center justify-center gap-2">
+            <span>+</span> New Day Entry
+        </button>
+    </div>
+
+    <!-- Main Workspace -->
+    <div id="main-area" class="w-screen h-screen relative flex items-center justify-center">
+        
+        <div id="bg-fluid-layer" class="fluid-canvas"></div>
+
+        <!-- 1. INPUT HUB BUBBLE -->
+        <div id="input-hub" class="bubble flex flex-col items-center justify-center p-10 relative z-10 border border-white/15">
+            <div class="text-center mb-4">
+                <h1 class="text-[28px] font-semibold bg-gradient-to-r from-[#8ab4f8] via-[#c58af9] to-[#f28b82] bg-clip-text text-transparent mb-1">
+                    How did today feel?
+                </h1>
+                <p class="text-xs text-[#a1a6ad]">Upload a photo & 3D Splat (.PLY), pick a date & song, and pin to Earth</p>
+            </div>
+
+            <!-- Row 1: Location Pill, Date Pill, & Importance Pill -->
+            <div class="w-full max-w-[500px] flex gap-2 mb-3 relative z-30">
+                <div class="liquid-pill flex-1 px-3.5 py-2.5 flex items-center gap-1.5">
+                    <span class="text-xs">📍</span>
+                    <input id="location-input" type="text" placeholder="City or Country (e.g. Almaty)" 
+                        class="w-full bg-transparent text-xs text-[#f5f5f7] placeholder-[#9aa0a6] focus:outline-none">
+                </div>
+
+                <div class="liquid-pill px-3.5 py-2.5 flex items-center gap-1.5">
+                    <input id="date-input" type="date" 
+                        class="bg-transparent text-xs text-[#f5f5f7] focus:outline-none cursor-pointer">
+                </div>
+
+                <div class="relative custom-dd">
+                    <button type="button" onclick="toggleCustomDD('imp-menu', event)" class="liquid-pill magnetic-btn px-3.5 py-2.5 flex items-center gap-1.5 text-xs text-[#f5f5f7] whitespace-nowrap">
+                        <span class="text-[#f28b82]">★</span>
+                        <span id="imp-label">3/5</span>
+                        <span class="text-[10px] text-[#9aa0a6]">▾</span>
+                    </button>
+                    <input type="hidden" id="importance-input" value="3">
+                    <div id="imp-menu" class="fluid-menu-popup hidden absolute right-0 top-12 w-44 p-2 space-y-1 z-50 text-xs">
+                        <div onclick="selectImportance(1, '1/5')" class="px-3.5 py-2 rounded-full hover:bg-white/15 cursor-pointer">★ Importance: 1</div>
+                        <div onclick="selectImportance(2, '2/5')" class="px-3.5 py-2 rounded-full hover:bg-white/15 cursor-pointer">★★ Importance: 2</div>
+                        <div onclick="selectImportance(3, '3/5')" class="px-3.5 py-2 rounded-full hover:bg-white/15 cursor-pointer">★★★ Importance: 3</div>
+                        <div onclick="selectImportance(4, '4/5')" class="px-3.5 py-2 rounded-full hover:bg-white/15 cursor-pointer">★★★★ Importance: 4</div>
+                        <div onclick="selectImportance(5, '5/5')" class="px-3.5 py-2 rounded-full hover:bg-white/15 cursor-pointer text-[#f28b82] font-semibold">★★★★★ Core (5)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Row 2: Main Gemini Pill Input Bar -->
+            <div class="liquid-pill w-full max-w-[500px] px-2.5 py-2 flex items-center gap-2.5 relative z-50 mb-3">
+                <div class="relative custom-dd">
+                    <button type="button" onclick="toggleCustomDD('plus-menu', event)" class="circle-btn magnetic-btn w-10 h-10 flex items-center justify-center text-white text-lg font-light">
+                        +
+                    </button>
+                    <div id="plus-menu" class="fluid-menu-popup hidden absolute left-0 top-14 w-64 p-2 space-y-1 text-xs z-50">
+                        <label class="flex items-center gap-2.5 px-4 py-2.5 hover:bg-white/15 rounded-full cursor-pointer text-[#f5f5f7] transition">
+                            <span>📷</span> 1. Upload Photo
+                            <input id="photo-upload" type="file" accept="image/*" class="hidden" onchange="handlePhotoSelected(event)">
+                        </label>
+                        <label class="flex items-center gap-2.5 px-4 py-2.5 hover:bg-white/15 rounded-full cursor-pointer text-[#8ab4f8] transition">
+                            <span>🧊</span> 2. Attach 3D (.PLY / .GLB)
+                            <input id="glb-upload" type="file" accept=".ply,.splat,.ksplat,.glb,.gltf" class="hidden" onchange="handleGlbSelected(event)">
+                        </label>
+                    </div>
+                </div>
+
+                <input id="feeling-input" type="text" placeholder="Describe your feeling..." 
+                    onkeydown="if(event.key==='Enter') trigger3DPrompt()"
+                    class="flex-1 bg-transparent text-[15px] text-[#f5f5f7] placeholder-[#9aa0a6] focus:outline-none px-1">
+
+                <button type="button" onclick="trigger3DPrompt()" title="Build 3D Memory" class="circle-btn magnetic-btn w-10 h-10 flex items-center justify-center text-[#8ab4f8] hover:text-white">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Row 3: Spotify Connect + Universal Live Search Pill -->
+            <div class="w-full max-w-[500px] flex flex-col items-center gap-2.5 relative z-20">
+                
+                <div class="w-full flex items-center gap-2.5">
+                    <a id="spotify-connect-btn" href="/api/spotify/login" 
+                        class="liquid-pill magnetic-btn px-5 py-2.5 text-xs font-semibold text-[#1db954] whitespace-nowrap flex items-center gap-1.5">
+                        <span>🎵</span> Connect Spotify
+                    </a>
+
+                    <div class="liquid-pill flex-1 pl-4 pr-2 py-1.5 flex items-center gap-2">
+                        <span class="text-xs">🔍</span>
+                        <input id="spotify-search-input" type="text" placeholder="Search any song or artist..." 
+                            onkeydown="if(event.key==='Enter') searchSpotifySongs(event)"
+                            class="w-full bg-transparent text-xs text-[#f5f5f7] placeholder-[#9aa0a6] focus:outline-none">
+                        <button type="button" onclick="searchSpotifySongs(event)" class="circle-btn magnetic-btn px-4 py-1.5 text-[11px] font-semibold text-[#8ab4f8]">
+                            Find
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Row 4: Playlist & Song Dropdowns -->
+                <div class="flex gap-2.5 w-full relative">
+                    <div class="w-1/2 relative custom-dd">
+                        <button type="button" onclick="toggleCustomDD('playlist-popup', event)" 
+                            class="liquid-pill magnetic-btn w-full px-4 py-2.5 flex items-center justify-between text-xs text-[#f5f5f7]">
+                            <span id="selected-playlist-label" class="truncate">☁️ Choose Playlist...</span>
+                            <span class="text-[10px] text-[#9aa0a6] ml-1">▾</span>
+                        </button>
+                        <div id="playlist-popup" class="fluid-menu-popup hidden absolute left-0 top-12 w-64 p-2 space-y-1 z-50 text-xs"></div>
+                    </div>
+
+                    <div class="w-1/2 relative custom-dd">
+                        <button type="button" onclick="toggleCustomDD('track-popup', event)" 
+                            class="liquid-pill magnetic-btn w-full px-4 py-2.5 flex items-center justify-between text-xs text-[#f5f5f7]">
+                            <span id="selected-track-label" class="truncate">🎵 Choose Song...</span>
+                            <span class="text-[10px] text-[#9aa0a6] ml-1">▾</span>
+                        </button>
+                        <input type="hidden" id="selected-track-url" value="">
+                        <input type="hidden" id="selected-track-title" value="">
+                        <input type="hidden" id="selected-track-artist" value="">
+                        <input type="hidden" id="selected-track-cover" value="">
+                        <div id="track-popup" class="fluid-menu-popup hidden absolute right-0 top-12 w-72 p-2 space-y-1 z-50 text-xs"></div>
+                    </div>
+                </div>
+
+                <div id="bubble-player-mount" class="hidden w-full mt-1"></div>
+
+                <div class="flex flex-wrap justify-center gap-2">
+                    <div id="file-status" class="hidden text-xs text-[#8ab4f8] bg-[#8ab4f8]/15 px-4 py-1 rounded-full border border-[#8ab4f8]/30">
+                        Photo attached ✓
+                    </div>
+                    <div id="glb-status" class="hidden text-xs text-[#c58af9] bg-[#c58af9]/15 px-4 py-1 rounded-full border border-[#c58af9]/30">
+                        3D World attached ✓
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. CONFIRMATION MODAL -->
+        <div id="confirm-modal" class="hidden fixed inset-0 bg-black/75 z-50 flex items-center justify-center">
+            <div class="bubble !w-96 !h-96 flex flex-col items-center justify-center p-8 text-center border border-white/20">
+                <h3 class="text-xl font-semibold text-[#f5f5f7] mb-2">Build 3D Memory?</h3>
+                <p class="text-xs text-[#c4c7c5] mb-6 leading-relaxed">This will save your 3D environment and pin it onto your interactive Earth Globe.</p>
+                <div class="flex gap-3 justify-center">
+                    <button onclick="closeModal()" class="liquid-pill magnetic-btn px-6 py-2.5 text-xs">Cancel</button>
+                    <button id="generate-btn" onclick="submitMemory()" class="circle-btn magnetic-btn px-6 py-2.5 text-xs font-semibold text-white">
+                        Create 3D World
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. REALISTIC 3D EARTH GLOBE VIEWER -->
+        <div id="globe-viewer" class="hidden fixed inset-0 z-20 bg-[#05060a]">
+            <div id="globe-canvas" class="w-screen h-screen cursor-grab active:cursor-grabbing"></div>
+            <div class="fixed top-5 right-6 liquid-pill px-6 py-2.5 pointer-events-none flex items-center gap-3">
+                <span class="text-xs font-semibold text-white">🌍 Global Memory Atlas</span>
+                <span id="globe-pin-count" class="text-xs text-[#8ab4f8] font-semibold"></span>
+                <span class="text-xs text-[#9aa0a6]">• Click any red pin to enter 3D world</span>
+            </div>
+            <div id="globe-tooltip" class="hidden fixed liquid-pill px-4 py-2 text-xs shadow-xl pointer-events-none z-50"></div>
+        </div>
+
+        <!-- 4. INTERACTIVE 3D SCENE VIEWER -->
+        <div id="scene-viewer" class="hidden fixed inset-0 z-20 bg-[#07080c]">
+            <div id="three-canvas" class="w-screen h-screen cursor-grab active:cursor-grabbing"></div>
+            <div class="fixed top-5 right-6 liquid-pill px-5 py-2 text-[11px] text-[#c4c7c5] flex items-center gap-3 z-30">
+                <button onclick="openGlobeView()" class="circle-btn magnetic-btn px-3.5 py-1 text-[#8ab4f8] font-semibold pointer-events-auto">
+                    ← Earth Globe
+                </button>
+                <span id="scene-mode-badge" class="text-[#c58af9] font-semibold">🧊 3D Environment</span>
+                <span>• 🖱️ Drag to Orbit • ⌨️ WASD to Walk</span>
+            </div>
+            <div class="fixed bottom-6 right-6 w-96 bg-[#121420]/95 border border-white/15 p-6 rounded-[34px] shadow-2xl z-30">
+                <div class="flex items-center justify-between mb-2">
+                    <span id="scene-location" class="text-[11px] font-medium px-3 py-1 rounded-full bg-[#8ab4f8]/20 text-[#8ab4f8]"></span>
+                    <span id="scene-date" class="text-[11px] text-[#9aa0a6] font-mono"></span>
+                    <span id="scene-importance" class="text-xs text-[#f28b82] font-semibold"></span>
+                </div>
+                <h2 id="scene-title" class="text-lg font-semibold text-white mb-1"></h2>
+                <p id="scene-text" class="text-xs text-[#c4c7c5] leading-relaxed mb-3"></p>
+                
+                <div id="scene-player-mount" class="hidden mb-3"></div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let allMemories = [];
+        let currentMemory = null;
+        let scene, camera, renderer, controls, active3DObject, activeSplatViewer;
+        let gCamera, gRenderer, globeAnimId, sceneAnimId;
+        let mapPinTexture = null;
+        const keysPressed = {};
+        const audioEngine = document.getElementById('global-audio-engine');
+
+        // Default date input to today
+        document.getElementById('date-input').value = new Date().toISOString().split('T')[0];
+
+        // ------------------------------------------
+        // FAST RAF-THROTTLED APPLE MAGNETIC CURSOR
+        // ------------------------------------------
+        function attachMagneticEffect(el, strength = 0.22) {
+            if (el.dataset.magneticBound) return;
+            el.dataset.magneticBound = "1";
+            let rafId = null;
+
+            el.addEventListener('pointermove', (e) => {
+                if (rafId) return;
+                rafId = requestAnimationFrame(() => {
+                    const rect = el.getBoundingClientRect();
+                    const dx = (e.clientX - (rect.left + rect.width / 2)) * strength;
+                    const dy = (e.clientY - (rect.top + rect.height / 2)) * strength;
+                    el.style.setProperty('--tx', `${dx.toFixed(1)}px`);
+                    el.style.setProperty('--ty', `${dy.toFixed(1)}px`);
+                    rafId = null;
+                });
+            }, { passive: true });
+
+            el.addEventListener('pointerleave', () => {
+                if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+                el.style.setProperty('--tx', '0px');
+                el.style.setProperty('--ty', '0px');
+            }, { passive: true });
+        }
+
+        function refreshMagneticButtons() {
+            document.querySelectorAll('.magnetic-btn').forEach(btn => attachMagneticEffect(btn, 0.24));
+        }
+
+        window.addEventListener('keydown', (e) => { if (e.key) keysPressed[e.key.toLowerCase()] = true; }, { passive: true });
+        window.addEventListener('keyup', (e) => { if (e.key) keysPressed[e.key.toLowerCase()] = false; }, { passive: true });
+
+        window.addEventListener('resize', () => {
+            if (gRenderer && gCamera) {
+                gCamera.aspect = window.innerWidth / window.innerHeight;
+                gCamera.updateProjectionMatrix();
+                gRenderer.setSize(window.innerWidth, window.innerHeight);
+            }
+            if (renderer && camera) {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+        });
+
+        function toggleCustomDD(id, e) {
+            if (e) e.stopPropagation();
+            ['imp-menu', 'playlist-popup', 'track-popup', 'plus-menu'].forEach(menuId => {
+                if (menuId !== id) document.getElementById(menuId)?.classList.add('hidden');
+            });
+            document.getElementById(id).classList.toggle('hidden');
+        }
+
+        function closeAllCustomDropdowns(e) {
+            if (!e.target.closest('.custom-dd')) {
+                ['imp-menu', 'playlist-popup', 'track-popup', 'plus-menu'].forEach(id => {
+                    document.getElementById(id)?.classList.add('hidden');
+                });
+            }
+        }
+
+        function selectImportance(val, label) {
+            document.getElementById('importance-input').value = val;
+            document.getElementById('imp-label').textContent = label;
+            document.getElementById('imp-menu').classList.add('hidden');
+        }
+
+        function toggleSidebar() {
+            const sb = document.getElementById('sidebar');
+            const openBtn = document.getElementById('open-sidebar-btn');
+            sb.classList.toggle('collapsed');
+            openBtn.classList.toggle('hidden', !sb.classList.contains('collapsed'));
+        }
+
+        function toggleSearchBar() {
+            const s = document.getElementById('archive-search');
+            s.classList.toggle('hidden');
+            if (!s.classList.contains('hidden')) s.focus();
+        }
+
+        function filterArchive() {
+            const q = document.getElementById('archive-search').value.toLowerCase();
+            renderArchiveList(allMemories.filter(m => 
+                (m.title || '').toLowerCase().includes(q) || 
+                (m.location || '').toLowerCase().includes(q) ||
+                (m.date || '').toLowerCase().includes(q)
+            ));
+        }
+
+        function handlePhotoSelected(e) {
+            if (e.target.files.length > 0) {
+                const badge = document.getElementById('file-status');
+                badge.textContent = `Photo (${e.target.files[0].name}) ✓`;
+                badge.classList.remove('hidden');
+                document.getElementById('plus-menu').classList.add('hidden');
+            }
+        }
+
+        function handleGlbSelected(e) {
+            if (e.target.files.length > 0) {
+                const badge = document.getElementById('glb-status');
+                badge.textContent = `3D World (${e.target.files[0].name}) ✓`;
+                badge.classList.remove('hidden');
+                document.getElementById('plus-menu').classList.add('hidden');
+            }
+        }
+
+        function trigger3DPrompt() {
+            document.getElementById('plus-menu').classList.add('hidden');
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+        function closeModal() { document.getElementById('confirm-modal').classList.add('hidden'); }
+
+        function hideAllViews() {
+            document.getElementById('input-hub').classList.add('hidden');
+            document.getElementById('scene-viewer').classList.add('hidden');
+            document.getElementById('globe-viewer').classList.add('hidden');
+            document.getElementById('bg-fluid-layer').classList.add('hidden');
+            window.speechSynthesis.cancel();
+            audioEngine.pause();
+            if (globeAnimId) { cancelAnimationFrame(globeAnimId); globeAnimId = null; }
+            if (sceneAnimId) { cancelAnimationFrame(sceneAnimId); sceneAnimId = null; }
+            if (gRenderer) { gRenderer.dispose(); gRenderer = null; }
+            if (renderer) { renderer.dispose(); renderer = null; }
+            if (activeSplatViewer) {
+                try { activeSplatViewer.dispose(); } catch (e) {}
+                activeSplatViewer = null;
+            }
+        }
+
+        function resetToCreate() {
+            hideAllViews();
+            document.getElementById('bg-fluid-layer').classList.remove('hidden');
+            document.getElementById('input-hub').classList.remove('hidden');
+        }
+
+        function formatTime(sec) {
+            if (!sec || isNaN(sec)) return "0:00";
+            const m = Math.floor(sec / 60);
+            const s = Math.floor(sec % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        function mountCustomPlayer(containerId, trackObj, autoPlay = true) {
+            const container = document.getElementById(containerId);
+            if (!trackObj || !trackObj.url) {
+                container.classList.add('hidden');
+                container.innerHTML = '';
+                audioEngine.pause();
+                return;
+            }
+
+            const spMatch = trackObj.url.match(/open\.spotify\.com\/(track|album|playlist)\/([a-zA-Z0-9]+)/);
+            if (spMatch && !trackObj.url.endsWith('.m4a') && !trackObj.url.includes('mzstatic.com')) {
+                audioEngine.pause();
+                container.innerHTML = `<div class="rounded-full overflow-hidden border border-white/15 shadow-lg"><iframe style="border-radius:9999px" src="https://open.spotify.com/embed/${spMatch[1]}/${spMatch[2]}?utm_source=generator&theme=0" width="100%" height="80" frameBorder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe></div>`;
+                container.classList.remove('hidden');
+                return;
+            }
+
+            const title = trackObj.title || "Selected Track";
+            const artist = trackObj.artist || "Atmosphere Audio";
+            const cover = trackObj.cover || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=120&q=80";
+
+            container.innerHTML = `
+                <div id="${containerId}-card" class="liquid-pill px-3.5 py-2.5 flex items-center gap-3 w-full">
+                    <div class="relative w-10 h-10 shrink-0">
+                        <img id="${containerId}-disc" src="${cover}" class="spin-disc w-10 h-10 rounded-full object-cover border border-white/25 shadow-md">
+                        <div class="absolute inset-0 m-auto w-2.5 h-2.5 rounded-full bg-[#0d0e14] border border-white/30"></div>
+                    </div>
+                    <button type="button" onclick="toggleAudioPlayback()" class="circle-btn magnetic-btn w-9 h-9 shrink-0 flex items-center justify-center text-white">
+                        <span id="${containerId}-icon" class="text-xs">▶</span>
+                    </button>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between mb-1">
+                            <div class="truncate text-xs font-semibold text-white pr-2">${title} <span class="text-[#9aa0a6] font-normal">— ${artist}</span></div>
+                            <span id="${containerId}-time" class="text-[10px] text-[#8ab4f8] font-mono shrink-0">0:00 / 0:30</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-white/10 rounded-full overflow-hidden cursor-pointer relative" onclick="seekAudio(event)">
+                            <div id="${containerId}-bar" class="h-full bg-gradient-to-r from-[#8ab4f8] via-[#c58af9] to-[#f28b82] rounded-full w-0"></div>
+                        </div>
+                    </div>
+                    <div class="flex items-end gap-0.5 h-4 px-1 shrink-0">
+                        <div class="eq-bar eq-bar-1"></div>
+                        <div class="eq-bar eq-bar-2"></div>
+                        <div class="eq-bar eq-bar-3"></div>
+                    </div>
+                </div>
+            `;
+            container.classList.remove('hidden');
+            refreshMagneticButtons();
+
+            audioEngine.src = trackObj.url;
+            audioEngine.ontimeupdate = () => {
+                const pct = audioEngine.duration ? (audioEngine.currentTime / audioEngine.duration) * 100 : 0;
+                const bar = document.getElementById(`${containerId}-bar`);
+                const timeEl = document.getElementById(`${containerId}-time`);
+                if (bar) bar.style.width = `${pct}%`;
+                if (timeEl) timeEl.textContent = `${formatTime(audioEngine.currentTime)} / ${formatTime(audioEngine.duration || 30)}`;
+            };
+            audioEngine.onplay = () => setPlayerVisualState(containerId, true);
+            audioEngine.onpause = () => setPlayerVisualState(containerId, false);
+            audioEngine.onended = () => setPlayerVisualState(containerId, false);
+
+            if (autoPlay) {
+                audioEngine.play().catch(() => setPlayerVisualState(containerId, false));
+            }
+        }
+
+        function setPlayerVisualState(containerId, isPlaying) {
+            const card = document.getElementById(`${containerId}-card`);
+            const disc = document.getElementById(`${containerId}-disc`);
+            const icon = document.getElementById(`${containerId}-icon`);
+            if (!card) return;
+            card.classList.toggle('playing', isPlaying);
+            disc?.classList.toggle('playing', isPlaying);
+            if (icon) icon.textContent = isPlaying ? '⏸' : '▶';
+        }
+
+        function toggleAudioPlayback() {
+            if (audioEngine.paused) audioEngine.play();
+            else audioEngine.pause();
+        }
+
+        function seekAudio(e) {
+            if (!audioEngine.duration) return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            audioEngine.currentTime = ((e.clientX - rect.left) / rect.width) * audioEngine.duration;
+        }
+
+        function renderTrackOptions(tracks, headerText, autoOpenMenu = false) {
+            const popup = document.getElementById('track-popup');
+            const label = document.getElementById('selected-track-label');
+            popup.innerHTML = '';
+
+            if (!tracks || tracks.length === 0) {
+                label.textContent = "🎵 No songs in this list";
+                return;
+            }
+
+            label.textContent = `🎵 ${headerText} (${tracks.length})`;
+            tracks.forEach(t => {
+                const item = document.createElement('div');
+                item.className = "px-3.5 py-2 rounded-full hover:bg-white/15 cursor-pointer flex items-center gap-2.5 text-[#f5f5f7] transition";
+                const thumb = t.cover ? `<img src="${t.cover}" class="w-6 h-6 rounded-full object-cover shrink-0">` : `<span>🎵</span>`;
+                item.innerHTML = `${thumb}<div class="truncate text-xs">${t.name}</div>`;
+                item.onclick = (ev) => {
+                    ev.stopPropagation();
+                    document.getElementById('selected-track-url').value = t.url;
+                    document.getElementById('selected-track-title').value = t.title || t.name;
+                    document.getElementById('selected-track-artist').value = t.artist || "";
+                    document.getElementById('selected-track-cover').value = t.cover || "";
+                    label.textContent = `🎵 ${t.name}`;
+                    popup.classList.add('hidden');
+                    mountCustomPlayer('bubble-player-mount', t, true);
+                };
+                popup.appendChild(item);
+            });
+
+            if (autoOpenMenu) {
+                ['imp-menu', 'playlist-popup', 'plus-menu'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
+                popup.classList.remove('hidden');
+            }
+        }
+
+        async function checkSpotifyStatus() {
+            try {
+                const res = await fetch("/api/spotify/playlists");
+                const data = await res.json();
+                const popup = document.getElementById('playlist-popup');
+                const pLabel = document.getElementById('selected-playlist-label');
+                popup.innerHTML = '';
+
+                if (data.connected) {
+                    const btn = document.getElementById('spotify-connect-btn');
+                    btn.innerHTML = `<span>✓</span> ${data.user || 'Spotify Linked'}`;
+                }
+
+                const lists = data.playlists || [];
+                lists.forEach(p => {
+                    const item = document.createElement('div');
+                    item.className = "px-3.5 py-2 rounded-full hover:bg-white/15 cursor-pointer truncate text-[#f5f5f7] transition";
+                    item.textContent = p.name;
+                    item.onclick = (ev) => {
+                        ev.stopPropagation();
+                        pLabel.textContent = p.name;
+                        popup.classList.add('hidden');
+                        loadPlaylistTracks(p.id, true);
+                    };
+                    popup.appendChild(item);
+                });
+
+                if (lists.length > 0) {
+                    pLabel.textContent = lists[0].name;
+                    loadPlaylistTracks(lists[0].id, false);
+                }
+            } catch (err) {
+                console.error("Spotify check error:", err);
+            }
+        }
+
+        async function loadPlaylistTracks(playlistId, openWhenLoaded = false) {
+            const label = document.getElementById('selected-track-label');
+            label.textContent = "🎵 Loading songs...";
+            const res = await fetch(`/api/spotify/playlist-tracks/${encodeURIComponent(playlistId)}`);
+            const data = await res.json();
+            renderTrackOptions(data.tracks || [], "Choose Song", openWhenLoaded);
+        }
+
+        async function searchSpotifySongs(e) {
+            if (e) e.stopPropagation();
+            const q = document.getElementById('spotify-search-input').value;
+            if (!q.trim()) return;
+            const label = document.getElementById('selected-track-label');
+            label.textContent = "🎵 Searching...";
+            const res = await fetch(`/api/spotify/search?q=${encodeURIComponent(q)}`);
+            const data = await res.json();
+            renderTrackOptions(data.tracks || [], `Results for "${q}"`, true);
+        }
+
+        async function submitMemory() {
+            const text = document.getElementById('feeling-input').value;
+            const location = document.getElementById('location-input').value || "Almaty, Kazakhstan";
+            const memDate = document.getElementById('date-input').value;
+            const importance = document.getElementById('importance-input').value;
+            const song = document.getElementById('selected-track-url').value;
+            const songTitle = document.getElementById('selected-track-title').value;
+            const songArtist = document.getElementById('selected-track-artist').value;
+            const songCover = document.getElementById('selected-track-cover').value;
+            const photoFile = document.getElementById('photo-upload').files[0];
+            const glbFile = document.getElementById('glb-upload').files[0];
+
+            if (!text || !photoFile) {
+                alert("Please write your feeling and upload a photo!");
+                closeModal();
+                return;
+            }
+
+            const btn = document.getElementById('generate-btn');
+            btn.innerText = "Building 3D Scene...";
+
+            const formData = new FormData();
+            formData.append("text", text);
+            formData.append("location", location);
+            formData.append("memory_date", memDate);
+            formData.append("importance", importance);
+            formData.append("song_url", song);
+            formData.append("song_title", songTitle);
+            formData.append("song_artist", songArtist);
+            formData.append("song_cover", songCover);
+            formData.append("photo", photoFile);
+            if (glbFile) formData.append("glb_file", glbFile);
+
+            const res = await fetch("/api/create-memory", { method: "POST", body: formData });
+            const data = await res.json();
+
+            btn.innerText = "Create 3D World";
+            closeModal();
+            await loadArchive();
+            openMemoryScene(data);
+        }
+
+        // ------------------------------------------
+        // TEARDROP LOCATION PIN TEXTURE GENERATOR
+        // ------------------------------------------
+        function getMapPinTexture() {
+            if (mapPinTexture) return mapPinTexture;
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 160;
+            const ctx = canvas.getContext('2d');
+
+            // Teardrop red map pin silhouette
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(64, 56, 46, Math.PI * 0.88, Math.PI * 0.12, false);
+            ctx.quadraticCurveTo(100, 96, 64, 148);
+            ctx.quadraticCurveTo(28, 96, 21, 73);
+            ctx.closePath();
+
+            ctx.fillStyle = '#ff1e27';
+            ctx.shadowColor = 'rgba(255, 30, 39, 0.55)';
+            ctx.shadowBlur = 12;
+            ctx.fill();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#ffffff';
+            ctx.stroke();
+
+            // Inner white circle cutout
+            ctx.beginPath();
+            ctx.arc(64, 56, 20, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            ctx.restore();
+
+            mapPinTexture = new THREE.CanvasTexture(canvas);
+            return mapPinTexture;
+        }
+
+        function latLonToVector3(lat, lon, radius) {
+            const phi = (90 - lat) * (Math.PI / 180);
+            const theta = (lon + 180) * (Math.PI / 180);
+            return new THREE.Vector3(
+                -(radius * Math.sin(phi) * Math.cos(theta)),
+                radius * Math.cos(phi),
+                radius * Math.sin(phi) * Math.sin(theta)
+            );
+        }
+
+        function openGlobeView() {
+            hideAllViews();
+            document.getElementById('globe-viewer').classList.remove('hidden');
+            document.getElementById('globe-pin-count').textContent = `• ${allMemories.length} Pins`;
+
+            const container = document.getElementById('globe-canvas');
+            container.innerHTML = '';
+
+            const gScene = new THREE.Scene();
+            gScene.background = new THREE.Color('#05060a');
+
+            gCamera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            gCamera.position.set(0, 2.2, 6.8);
+
+            gRenderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            gRenderer.setSize(window.innerWidth, window.innerHeight);
+            gRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+            container.appendChild(gRenderer.domElement);
+
+            const gControls = new window.OrbitControls(gCamera, gRenderer.domElement);
+            gControls.enableDamping = true;
+            gControls.minDistance = 3.2;
+            gControls.maxDistance = 14;
+            gControls.autoRotate = true;
+            gControls.autoRotateSpeed = 0.45;
+
+            const texLoader = new THREE.TextureLoader();
+            texLoader.setCrossOrigin('anonymous');
+            const baseTexUrl = 'https://raw.githubusercontent.com/mrdoob/three.js/r128/examples/textures/planets/';
+
+            const radius = 2.2;
+            const earthGroup = new THREE.Group();
+            gScene.add(earthGroup);
+
+            const earthGeo = new THREE.SphereGeometry(radius, 40, 40);
+            const earthMat = new THREE.MeshPhongMaterial({
+                map: texLoader.load(baseTexUrl + 'earth_atmos_2048.jpg'),
+                bumpMap: texLoader.load(baseTexUrl + 'earth_normal_2048.jpg'),
+                bumpScale: 0.04,
+                specularMap: texLoader.load(baseTexUrl + 'earth_specular_2048.jpg'),
+                specular: new THREE.Color(0x334466),
+                shininess: 16
+            });
+            earthGroup.add(new THREE.Mesh(earthGeo, earthMat));
+
+            const pinTex = getMapPinTexture();
+            const clickablePinMeshes = [];
+            const seenCoords = {};
+
+            // Place EVERY memory on the globe; offset duplicates slightly so no two pins ever hide each other
+            allMemories.forEach((mem, idx) => {
+                let lat = parseFloat(mem.lat);
+                let lon = parseFloat(mem.lon);
+                if (isNaN(lat) || isNaN(lon)) {
+                    lat = 43.22 + (idx * 7);
+                    lon = 76.85 + (idx * 12);
+                }
+
+                const key = `${lat.toFixed(1)}_${lon.toFixed(1)}`;
+                seenCoords[key] = (seenCoords[key] || 0) + 1;
+                if (seenCoords[key] > 1) {
+                    const angle = seenCoords[key] * 1.3;
+                    const spread = 2.2 * (seenCoords[key] - 1);
+                    lat += Math.sin(angle) * spread;
+                    lon += Math.cos(angle) * spread;
+                }
+
+                const imp = mem.importance || 3;
+                const scaleSize = 0.24 + (imp * 0.035);
+                const surfacePos = latLonToVector3(lat, lon, radius);
+                const normal = surfacePos.clone().normalize();
+
+                const spriteMat = new THREE.SpriteMaterial({
+                    map: pinTex,
+                    transparent: true,
+                    depthTest: true
+                });
+                const pinSprite = new THREE.Sprite(spriteMat);
+                pinSprite.scale.set(scaleSize, scaleSize * 1.25, 1);
+                pinSprite.position.copy(surfacePos).addScaledVector(normal, scaleSize * 0.55);
+                pinSprite.userData = mem;
+
+                earthGroup.add(pinSprite);
+                clickablePinMeshes.push(pinSprite);
+            });
+
+            gScene.add(new THREE.AmbientLight(0xffffff, 0.8));
+            const sunLight = new THREE.DirectionalLight(0xffffff, 1.3);
+            sunLight.position.set(5, 3, 5);
+            gScene.add(sunLight);
+
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+            const tooltip = document.getElementById('globe-tooltip');
+            let downPos = { x: 0, y: 0 };
+
+            function updateMouseCoords(e) {
+                const rect = gRenderer.domElement.getBoundingClientRect();
+                mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+            }
+
+            gRenderer.domElement.addEventListener('pointerdown', (e) => {
+                downPos = { x: e.clientX, y: e.clientY };
+            });
+
+            gRenderer.domElement.addEventListener('pointermove', (e) => {
+                updateMouseCoords(e);
+                raycaster.setFromCamera(mouse, gCamera);
+                const hits = raycaster.intersectObjects(clickablePinMeshes);
+                if (hits.length > 0) {
+                    gControls.autoRotate = false;
+                    gRenderer.domElement.style.cursor = 'pointer';
+                    const m = hits[0].object.userData;
+                    tooltip.innerHTML = `<span class="font-semibold text-white">📍 ${m.location}</span> <span class="text-[#9aa0a6]">(${m.date || 'Today'})</span> • <span class="text-[#8ab4f8]">${m.title}</span> <span class="text-[#f28b82]">★${m.importance || 3}</span>`;
+                    tooltip.style.left = (e.clientX + 14) + 'px';
+                    tooltip.style.top = (e.clientY + 14) + 'px';
+                    tooltip.classList.remove('hidden');
+                } else {
+                    gControls.autoRotate = true;
+                    gRenderer.domElement.style.cursor = 'grab';
+                    tooltip.classList.add('hidden');
+                }
+            });
+
+            gRenderer.domElement.addEventListener('pointerup', (e) => {
+                const dist = Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y);
+                if (dist < 8) {
+                    updateMouseCoords(e);
+                    raycaster.setFromCamera(mouse, gCamera);
+                    const hits = raycaster.intersectObjects(clickablePinMeshes);
+                    if (hits.length > 0) {
+                        tooltip.classList.add('hidden');
+                        openMemoryScene(hits[0].object.userData);
+                    }
+                }
+            });
+
+            function animateGlobe() {
+                if (document.getElementById('globe-viewer').classList.contains('hidden')) return;
+                globeAnimId = requestAnimationFrame(animateGlobe);
+                gControls.update();
+                gRenderer.render(gScene, gCamera);
+            }
+            animateGlobe();
+        }
+
+        // ------------------------------------------
+        // 3D MEMORY SCENE
+        // ------------------------------------------
+        function build3DEnvironmentFromPhoto(tex, memoryData, primaryColor) {
+            const aspect = tex.image.width / tex.image.height;
+            const width = 5.4 * aspect;
+            const height = 5.4;
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 96;
+            canvas.height = 96;
+            ctx.drawImage(tex.image, 0, 0, 96, 96);
+            const imgData = ctx.getImageData(0, 0, 96, 96);
+            const data = imgData.data;
+            for (let i = 0; i < data.length; i += 4) {
+                const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+                data[i] = data[i + 1] = data[i + 2] = lum;
+            }
+            ctx.putImageData(imgData, 0, 0);
+            const depthTex = new THREE.CanvasTexture(canvas);
+
+            const geo = new THREE.PlaneGeometry(width, height, 72, 72);
+            const mat = new THREE.MeshStandardMaterial({
+                map: tex,
+                displacementMap: depthTex,
+                displacementScale: 1.2,
+                bumpMap: depthTex,
+                bumpScale: 0.1,
+                roughness: 0.3,
+                metalness: 0.15,
+                side: THREE.DoubleSide
+            });
+            const sculptedMesh = new THREE.Mesh(geo, mat);
+            sculptedMesh.position.set(0, 2.8, -1.5);
+            scene.add(sculptedMesh);
+            active3DObject = sculptedMesh;
+
+            const floorGeo = new THREE.CircleGeometry(14, 36);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0x0d101b, roughness: 0.3, metalness: 0.5 });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.position.y = 0.01;
+            scene.add(floor);
+        }
+
+        function openMemoryScene(data) {
+            currentMemory = data;
+            hideAllViews();
+            document.getElementById('scene-viewer').classList.remove('hidden');
+
+            document.getElementById('scene-title').innerText = data.title;
+            document.getElementById('scene-location').innerText = `📍 ${data.location || 'Memory'}`;
+            document.getElementById('scene-date').innerText = `📅 ${data.date || 'Today'}`;
+            document.getElementById('scene-importance').innerText = `★ ${data.importance || 3}/5`;
+            document.getElementById('scene-text').innerText = `"${data.text}"`;
+
+            mountCustomPlayer('scene-player-mount', {
+                url: data.song_url,
+                title: data.song_title || data.title,
+                artist: data.song_artist || data.location,
+                cover: data.song_cover || data.photo_url
+            }, true);
+
+            const container = document.getElementById('three-canvas');
+            container.innerHTML = '';
+            const badge = document.getElementById('scene-mode-badge');
+
+            // 1. ML-SHARP 3D GAUSSIAN SPLAT (.PLY / .SPLAT)
+            if (data.splat_url && window.GaussianSplats3D) {
+                badge.textContent = "⏳ Loading 3D Splat...";
+                container.style.width = '100vw';
+                container.style.height = '100vh';
+
+                activeSplatViewer = new window.GaussianSplats3D.Viewer({
+                    rootElement: container,
+                    cameraUp: [0, -1, 0],
+                    initialCameraPosition: [0, 0, -0.5],
+                    initialCameraLookAt: [0, 0, 2.5],
+                    sharedMemoryForWorkers: false,
+                    gpuAcceleratedSort: false,
+                    antialiased: false,
+                    sphericalHarmonicsDegree: 0
+                });
+
+                // Turn off GaussianSplats3D's default W/S vertical up/down keyboard listener
+                if (activeSplatViewer.controls && activeSplatViewer.controls.stopListenToKeyEvents) {
+                    activeSplatViewer.controls.stopListenToKeyEvents();
+                }
+
+                const safeUrl = data.splat_url.split('/').map(p => encodeURIComponent(decodeURIComponent(p))).join('/');
+
+                activeSplatViewer.addSplatScene(safeUrl, {
+                    format: window.GaussianSplats3D.SceneFormat.Ply,
+                    splatAlphaRemovalThreshold: 5,
+                    showLoadingUI: true,
+                    progressiveLoad: false
+                }).then(() => {
+                    badge.textContent = "✨ ML-SHARP 3D Gaussian Splat";
+                    activeSplatViewer.start();
+
+                    // Custom WASD walk loop: W/S = Forward/Backward, A/D = Left/Right
+                    function animateSplatWalk() {
+                        if (document.getElementById('scene-viewer').classList.contains('hidden') || !activeSplatViewer) return;
+                        sceneAnimId = requestAnimationFrame(animateSplatWalk);
+
+                        const cam = activeSplatViewer.camera;
+                        const ctrl = activeSplatViewer.controls;
+                        if (!cam || !ctrl) return;
+
+                        const speed = 0.045;
+                        const forward = new THREE.Vector3();
+                        cam.getWorldDirection(forward);
+                        forward.y = 0;
+                        forward.normalize();
+
+                        // Because cameraUp is [0, -1, 0] in ML-SHARP, cross(cam.up, forward) gives screen-right
+                        const right = new THREE.Vector3().crossVectors(forward, cam.up).normalize();
+
+                        if (keysPressed['w']) { cam.position.addScaledVector(forward, speed); ctrl.target.addScaledVector(forward, speed); }
+                        if (keysPressed['s']) { cam.position.addScaledVector(forward, -speed); ctrl.target.addScaledVector(forward, -speed); }
+                        if (keysPressed['a']) { cam.position.addScaledVector(right, -speed); ctrl.target.addScaledVector(right, -speed); }
+                        if (keysPressed['d']) { cam.position.addScaledVector(right, speed); ctrl.target.addScaledVector(right, speed); }
+                    }
+                    animateSplatWalk();
+                }).catch((err) => {
+                    console.error("ML-SHARP Splat Error:", err);
+                });
+                return;
+            }
+
+            const bgColor = (data.ai && data.ai.bg_color) || '#07080c';
+            const primaryColor = (data.ai && data.ai.primary_color) || '#8ab4f8';
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(bgColor);
+            scene.fog = new THREE.FogExp2(bgColor, 0.032);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 2.2, 6.8);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+            container.appendChild(renderer.domElement);
+
+            controls = new window.OrbitControls(camera, renderer.domElement);
+            controls.target.set(0, 2.2, -0.5);
+            controls.enableDamping = true;
+            controls.maxPolarAngle = Math.PI / 2 - 0.03;
+
+            const grid = new THREE.GridHelper(50, 30, primaryColor, 0x222533);
+            scene.add(grid);
+
+            scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+            const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            keyLight.position.set(5, 9, 6);
+            scene.add(keyLight);
+
+            if (data.glb_url) {
+                badge.textContent = "🧊 True 3D .GLB Mesh";
+                const loader = new window.GLTFLoader();
+                loader.load(data.glb_url, (gltf) => {
+                    const model = gltf.scene;
+                    const box = new THREE.Box3().setFromObject(model);
+                    const size = box.getSize(new THREE.Vector3());
+                    const maxDim = Math.max(size.x, size.y, size.z) || 1;
+                    model.scale.setScalar(3.5 / maxDim);
+
+                    const scaledBox = new THREE.Box3().setFromObject(model);
+                    const center = scaledBox.getCenter(new THREE.Vector3());
+                    model.position.set(-center.x, -scaledBox.min.y, -center.z);
+                    scene.add(model);
+                });
+            } else {
+                badge.textContent = "🏛️ 3D Walkable Biome";
+                new THREE.TextureLoader().load(data.photo_url, (tex) => {
+                    build3DEnvironmentFromPhoto(tex, data, primaryColor);
+                });
+            }
+
+            function animate() {
+                if (document.getElementById('scene-viewer').classList.contains('hidden')) return;
+                sceneAnimId = requestAnimationFrame(animate);
+
+                const moveSpeed = 0.14;
+                const forward = new THREE.Vector3();
+                camera.getWorldDirection(forward);
+                forward.y = 0; forward.normalize();
+                const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
+
+                if (keysPressed['w']) { camera.position.addScaledVector(forward, moveSpeed); controls.target.addScaledVector(forward, moveSpeed); }
+                if (keysPressed['s']) { camera.position.addScaledVector(forward, -moveSpeed); controls.target.addScaledVector(forward, -moveSpeed); }
+                if (keysPressed['a']) { camera.position.addScaledVector(right, -moveSpeed); controls.target.addScaledVector(right, -moveSpeed); }
+                if (keysPressed['d']) { camera.position.addScaledVector(right, moveSpeed); controls.target.addScaledVector(right, moveSpeed); }
+
+                controls.update();
+                renderer.render(scene, camera);
+            }
+            animate();
+        }
+
+        function speakMemory() {
+            if (!currentMemory) return;
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(new SpeechSynthesisUtterance(currentMemory.text));
+        }
+
+        function renderArchiveList(list) {
+            const container = document.getElementById('archive-list');
+            container.innerHTML = '';
+            list.forEach(item => {
+                const div = document.createElement('div');
+                div.className = "liquid-pill magnetic-btn px-4 py-3 cursor-pointer flex items-center justify-between";
+                const tag = (item.splat_url || item.glb_url) ? '🧊' : '📍';
+                const dateStr = item.date ? ` • ${item.date}` : '';
+                div.innerHTML = `
+                    <div class="truncate pr-2">
+                        <div class="font-medium text-xs text-[#f5f5f7] truncate">${item.title}</div>
+                        <div class="text-[10px] text-[#8ab4f8] truncate">${tag} ${item.location || 'Saved'}<span class="text-[#9aa0a6]">${dateStr}</span></div>
+                    </div>
+                    <span class="circle-btn text-[10px] px-2.5 py-0.5 text-[#f28b82] font-semibold shrink-0">★ ${item.importance || 3}</span>
+                `;
+                div.onclick = () => openMemoryScene(item);
+                container.appendChild(div);
+            });
+            refreshMagneticButtons();
+        }
+
+        async function loadArchive() {
+            const res = await fetch("/api/archive");
+            allMemories = await res.json();
+            renderArchiveList(allMemories);
+        }
+
+        refreshMagneticButtons();
+        checkSpotifyStatus();
+        loadArchive();
+    </script>
+</body>
+</html>
