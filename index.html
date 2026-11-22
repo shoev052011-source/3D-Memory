@@ -711,8 +711,8 @@
             const photoFile = document.getElementById('photo-upload').files[0];
             const glbFile = document.getElementById('glb-upload').files[0];
 
-            if (!text || !photoFile) {
-                alert("Please write your feeling and upload a photo!");
+            if (!text) {
+                alert("Please write your feeling!");
                 closeModal();
                 return;
             }

@@ -337,49 +337,30 @@ async def create_memory(
     song_title: str = Form(""),
     song_artist: str = Form(""),
     song_cover: str = Form(""),
-    photo: UploadFile = File(...),
+    photo: UploadFile = File(None),       # Changed to optional
     glb_file: UploadFile = File(None)
 ):
     lat, lon = resolve_coordinates(location)
     final_date = memory_date.strip() if memory_date.strip() else datetime.now().strftime("%Y-%m-%d")
 
-    prompt = f"""
-    Analyze this diary entry: "{text}" located in "{location}".
-    Return ONLY a valid JSON object with these exact keys:
-    - "title": a poetic 3 to 6 word title (letters and spaces only)
-    - "primary_color": a hex color code matching the mood (e.g. #8ab4f8)
-    - "bg_color": a dark background hex color matching the mood (e.g. #0b0d14)
-    """
-    
-    try:
-        res = requests.post("http://localhost:11434/api/generate", json={
-            "model": "llama3.2",
-            "prompt": prompt,
-            "format": "json",
-            "stream": False
-        }, timeout=3)
-        ai_data = json.loads(res.json()["response"])
-    except Exception:
-        words = [w for w in text.split() if w.isalnum()][:4]
-        fallback_title = " ".join(words).title() if words else f"Memory in {location}"
-        ai_data = {
-            "title": fallback_title,
-            "primary_color": "#8ab4f8",
-            "bg_color": "#0b0d14"
-        }
+    # ... [keep your AI prompt / fallback title code here] ...
 
     base_title = "".join(c for c in ai_data.get("title", "Memory Day") if c.isalnum() or c == " ").strip()
     if not base_title:
         base_title = "Memory"
-    # Ensure every memory gets a unique folder so new uploads never overwrite old ones!
     safe_title = f"{base_title}_{datetime.now().strftime('%H%M%S')}"
     folder_path = os.path.join("memories", safe_title)
     os.makedirs(folder_path, exist_ok=True)
 
-    photo_filename = f"photo_{photo.filename}"
-    photo_path = os.path.join(folder_path, photo_filename)
-    with open(photo_path, "wb") as buffer:
-        shutil.copyfileobj(photo.file, buffer)
+    # Handle optional photo upload (use default abstract background if none provided)
+    if photo and photo.filename:
+        photo_filename = f"photo_{photo.filename}"
+        photo_path = os.path.join(folder_path, photo_filename)
+        with open(photo_path, "wb") as buffer:
+            shutil.copyfileobj(photo.file, buffer)
+        photo_url = f"/memories/{safe_title}/{photo_filename}"
+    else:
+        photo_url = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1000&q=80"
 
     glb_url = ""
     splat_url = ""
@@ -408,7 +389,7 @@ async def create_memory(
         "song_title": song_title,
         "song_artist": song_artist,
         "song_cover": song_cover,
-        "photo_url": f"/memories/{safe_title}/{photo_filename}",
+        "photo_url": photo_url,
         "glb_url": glb_url,
         "splat_url": splat_url,
         "ai": ai_data
