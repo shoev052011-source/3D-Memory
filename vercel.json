@@ -1,8 +1,38 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "functions": {
-    "server.py": {
-      "maxDuration": 60
+  "version": 2,
+  "builds": [
+    {
+      "src": "server.py",
+      "use": "@vercel/python",
+      "config": {
+        "excludeFiles": "{memories/**/*.ply,memories/**/*.splat,memories/**/*.glb,assets/**,ml-sharp/**}"
+      }
+    },
+    {
+      "src": "memories/**",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "index.html",
+      "use": "@vercel/static"
     }
-  }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "server.py"
+    },
+    {
+      "src": "/callback",
+      "dest": "server.py"
+    },
+    {
+      "src": "/memories/(.*)",
+      "dest": "/memories/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
 }

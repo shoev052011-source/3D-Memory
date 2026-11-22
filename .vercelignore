@@ -1,0 +1,5 @@
+ml-sharp/
+assets/3d_models/
+__pycache__/
+*.pyc
+spotify_token.json
