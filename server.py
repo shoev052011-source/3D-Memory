@@ -337,22 +337,19 @@ async def create_memory(
     song_title: str = Form(""),
     song_artist: str = Form(""),
     song_cover: str = Form(""),
-    photo: UploadFile = File(None),       # Changed to optional
-    glb_file: UploadFile = File(None)
+    photo: UploadFile = File(None),       # Optional
+    glb_file: UploadFile = File(None)     # Optional
 ):
     lat, lon = resolve_coordinates(location)
     final_date = memory_date.strip() if memory_date.strip() else datetime.now().strftime("%Y-%m-%d")
 
-    # ... [keep your AI prompt / fallback title code here] ...
-
-    base_title = "".join(c for c in ai_data.get("title", "Memory Day") if c.isalnum() or c == " ").strip()
-    if not base_title:
-        base_title = "Memory"
+    # AI title/color generation fallback...
+    base_title = "Memory"
     safe_title = f"{base_title}_{datetime.now().strftime('%H%M%S')}"
     folder_path = os.path.join("memories", safe_title)
     os.makedirs(folder_path, exist_ok=True)
 
-    # Handle optional photo upload (use default abstract background if none provided)
+    # Fallback image if no photo is uploaded
     if photo and photo.filename:
         photo_filename = f"photo_{photo.filename}"
         photo_path = os.path.join(folder_path, photo_filename)
@@ -391,8 +388,7 @@ async def create_memory(
         "song_cover": song_cover,
         "photo_url": photo_url,
         "glb_url": glb_url,
-        "splat_url": splat_url,
-        "ai": ai_data
+        "splat_url": splat_url
     }
     with open(os.path.join(folder_path, "metadata.json"), "w", encoding="utf-8") as f:
         json.dump(metadata, f, ensure_ascii=False, indent=2)
